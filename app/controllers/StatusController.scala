@@ -25,8 +25,10 @@ class StatusController @Inject()(cc: ControllerComponents) extends AbstractContr
     val applicationStatus = new ApplicationStatus(status = "alive", version = "1.0.0")
     val result = Json.toJson(applicationStatus)
 
+    val message: (String, String) = ("dummyToken", "dummyMessage")
+
     //async pass message
-    showcaseActor ! ("dummyToken", "dummyMessage")
+    showcaseActor ! message
 
     Ok(result)
   }
