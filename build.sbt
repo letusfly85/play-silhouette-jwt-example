@@ -12,9 +12,10 @@ resolvers += Resolver.jcenterRepo
 resolvers += "Sonatype snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
 
 libraryDependencies ++= {
-  val silhouetteVersion = "5.0.1"
+  val silhouetteVersion = "5.0.2"
   Seq(
     guice,
+    ehcache,
     "com.mohiva" %% "play-silhouette" % silhouetteVersion,
     "com.mohiva" %% "play-silhouette-password-bcrypt" % silhouetteVersion,
     "com.mohiva" %% "play-silhouette-persistence" % silhouetteVersion,
