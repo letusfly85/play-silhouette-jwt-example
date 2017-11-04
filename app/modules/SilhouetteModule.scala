@@ -1,15 +1,15 @@
 package modules
 
 import com.google.inject.name.Named
-import com.google.inject.{ AbstractModule, Provides }
-import com.mohiva.play.silhouette.api.actions.{ SecuredErrorHandler, UnsecuredErrorHandler }
+import com.google.inject.{AbstractModule, Provides}
+import com.mohiva.play.silhouette.api.actions.{SecuredErrorHandler, UnsecuredErrorHandler}
 import com.mohiva.play.silhouette.api.crypto._
 import com.mohiva.play.silhouette.api.repositories.AuthInfoRepository
 import com.mohiva.play.silhouette.api.services._
 import com.mohiva.play.silhouette.api.util._
-import com.mohiva.play.silhouette.api.{ Environment, EventBus, Silhouette, SilhouetteProvider }
-import com.mohiva.play.silhouette.crypto.{ JcaCrypter, JcaCrypterSettings, JcaSigner, JcaSignerSettings }
-import com.mohiva.play.silhouette.impl.authenticators._
+import com.mohiva.play.silhouette.api.{Environment, EventBus, Silhouette, SilhouetteProvider}
+import com.mohiva.play.silhouette.crypto.{JcaCrypter, JcaCrypterSettings, JcaSigner, JcaSignerSettings}
+import com.mohiva.play.silhouette.impl.authenticators.{JWTAuthenticator, JWTAuthenticatorService, JWTAuthenticatorSettings}
 import com.mohiva.play.silhouette.impl.providers._
 import com.mohiva.play.silhouette.impl.providers.oauth1._
 import com.mohiva.play.silhouette.impl.providers.oauth1.secrets.{ CookieSecretProvider, CookieSecretSettings }
@@ -32,7 +32,7 @@ import play.api.Configuration
 import play.api.libs.openid.OpenIdClient
 import play.api.libs.ws.WSClient
 import play.api.mvc.CookieHeaderEncoding
-//import utils.auth.{ CustomSecuredErrorHandler, CustomUnsecuredErrorHandler, DefaultEnv }
+import utils.auth.{ CustomSecuredErrorHandler, CustomUnsecuredErrorHandler, DefaultEnv }
 import utils.auth.{ DefaultEnv }
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -47,11 +47,11 @@ class SilhouetteModule extends AbstractModule with ScalaModule {
    */
   def configure() {
     bind[Silhouette[DefaultEnv]].to[SilhouetteProvider[DefaultEnv]]
-    //bind[UnsecuredErrorHandler].to[CustomUnsecuredErrorHandler]
-    //bind[SecuredErrorHandler].to[CustomSecuredErrorHandler]
+    bind[UnsecuredErrorHandler].to[CustomUnsecuredErrorHandler]
+    bind[SecuredErrorHandler].to[CustomSecuredErrorHandler]
     bind[UserService].to[UserServiceImpl]
     bind[UserDAO].to[UserDAOImpl]
-    bind[CacheLayer].to[PlayCacheLayer]
+    //bind[CacheLayer].to[PlayCacheLayer]
     bind[IDGenerator].toInstance(new SecureRandomIDGenerator())
     bind[FingerprintGenerator].toInstance(new DefaultFingerprintGenerator(false))
     bind[EventBus].toInstance(EventBus())
@@ -84,7 +84,8 @@ class SilhouetteModule extends AbstractModule with ScalaModule {
   @Provides
   def provideEnvironment(
     userService: UserService,
-    authenticatorService: AuthenticatorService[CookieAuthenticator],
+    //authenticatorService: AuthenticatorService[CookieAuthenticator],
+    authenticatorService: AuthenticatorService[JWTAuthenticator],
     eventBus: EventBus): Environment[DefaultEnv] = {
 
     Environment[DefaultEnv](
@@ -223,31 +224,29 @@ class SilhouetteModule extends AbstractModule with ScalaModule {
   }
 
   /**
-   * Provides the authenticator service.
-   *
-   * @param signer The signer implementation.
-   * @param crypter The crypter implementation.
-   * @param cookieHeaderEncoding Logic for encoding and decoding `Cookie` and `Set-Cookie` headers.
-   * @param fingerprintGenerator The fingerprint generator implementation.
-   * @param idGenerator The ID generator implementation.
-   * @param configuration The Play configuration.
-   * @param clock The clock instance.
-   * @return The authenticator service.
-   */
+    * Provides the authenticator service.
+    *
+    * @param crypter The crypter implementation.
+    * @param idGenerator The ID generator implementation.
+    * @param configuration The Play configuration.
+    * @param clock The clock instance.
+    * @return The authenticator service.
+    */
   @Provides
   def provideAuthenticatorService(
-    @Named("authenticator-signer") signer: Signer,
-    @Named("authenticator-crypter") crypter: Crypter,
-    cookieHeaderEncoding: CookieHeaderEncoding,
-    fingerprintGenerator: FingerprintGenerator,
-    idGenerator: IDGenerator,
-    configuration: Configuration,
-    clock: Clock): AuthenticatorService[CookieAuthenticator] = {
+   @Named("authenticator-crypter") crypter: Crypter,
+   idGenerator: IDGenerator,
+   configuration: Configuration,
+   clock: Clock): AuthenticatorService[JWTAuthenticator] = {
 
-    val config = configuration.underlying.as[CookieAuthenticatorSettings]("silhouette.authenticator")
-    val authenticatorEncoder = new CrypterAuthenticatorEncoder(crypter)
+    //http://discourse.silhouette.rocks/t/jwtauthenticatorsettings-cannot-generate-a-config-value-reader-when-migrating-to-5-0-0-rc2/158/3
+    //https://github.com/iheartradio/ficus#enumeration-support
+    import net.ceedubs.ficus.readers.EnumerationReader._
 
-    new CookieAuthenticatorService(config, None, signer, cookieHeaderEncoding, authenticatorEncoder, fingerprintGenerator, idGenerator, clock)
+    val config = configuration.underlying.as[JWTAuthenticatorSettings]("silhouette.authenticator")
+    val encoder = new CrypterAuthenticatorEncoder(crypter)
+
+    new JWTAuthenticatorService(config, None, encoder, idGenerator, clock)
   }
 
   /**
